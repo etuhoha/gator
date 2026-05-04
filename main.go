@@ -45,6 +45,7 @@ func main() {
 	cmds.register("login", handlerLogin)
 	cmds.register("register", handlerRegister)
 	cmds.register("reset", handlerReset)
+	cmds.register("users", handlerUsers)
 
 	conf, err := config.Read()
 	if err != nil {
@@ -127,5 +128,22 @@ func handlerReset(s *state, cmd command) error {
 	}
 
 	fmt.Printf("users reset\n")
+	return nil
+}
+
+func handlerUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, u := range users {
+		name := u.Name
+		if name == s.config.User {
+			name += " (current)"
+		}
+		fmt.Printf("* %v\n", name)
+	}
+
 	return nil
 }
