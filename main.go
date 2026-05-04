@@ -44,6 +44,7 @@ func main() {
 	cmds := commands{make(map[string]func(*state, command) error)}
 	cmds.register("login", handlerLogin)
 	cmds.register("register", handlerRegister)
+	cmds.register("reset", handlerReset)
 
 	conf, err := config.Read()
 	if err != nil {
@@ -116,5 +117,15 @@ func handlerRegister(s *state, cmd command) error {
 	}
 
 	fmt.Printf("user created: %v\n", user)
+	return nil
+}
+
+func handlerReset(s *state, cmd command) error {
+	err := s.db.DeleteAllUsers(context.Background())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("users reset\n")
 	return nil
 }
