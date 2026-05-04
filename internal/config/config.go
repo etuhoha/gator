@@ -27,7 +27,7 @@ func Read() (Config, error) {
 	return config, nil
 }
 
-func (c Config) SetUser(user string) error {
+func (c *Config) SetUser(user string) error {
 	c.User = user
 
 	data, err := json.Marshal(c)
@@ -44,7 +44,7 @@ func (c Config) SetUser(user string) error {
 }
 
 func configFile() string {
-	fname := ".gatorconfig"
+	fname := ".gatorconfig.json"
 
 	home, err := os.UserHomeDir()
 	if err != nil {
