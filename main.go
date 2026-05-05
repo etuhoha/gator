@@ -48,6 +48,7 @@ func main() {
 	cmds.register("users", handlerUsers)
 	cmds.register("agg", handlerAgg)
 	cmds.register("addfeed", handlerAddFeed)
+	cmds.register("feeds", handlerFeeds)
 
 	conf, err := config.Read()
 	if err != nil {
@@ -193,5 +194,22 @@ func handlerAddFeed(s *state, cmd command) error {
 	}
 
 	fmt.Printf("feed created: %+v\n", feed)
+	return nil
+}
+
+func handlerFeeds(s *state, cmd command) error {
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range feeds {
+		user, err := s.db.GetUserById(context.Background(), feed.UserID)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("* %v (%v) by %v\n", feed.Name, feed.Url, user.Name)
+	}
+
 	return nil
 }
