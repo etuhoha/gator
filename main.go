@@ -51,6 +51,7 @@ func main() {
 	cmds.register("feeds", handlerFeeds)
 	cmds.register("follow", decorateLoggedIn(handlerFollow))
 	cmds.register("following", decorateLoggedIn(handlerFollowing))
+	cmds.register("unfollow", decorateLoggedIn(handlerUnfollow))
 
 	conf, err := config.Read()
 	if err != nil {
@@ -274,6 +275,27 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 
 	for _, row := range rows {
 		fmt.Printf("* %v -> %v\n", row.FeedName, row.UserName)
+	}
+
+	return nil
+}
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("missing feed url")
+	}
+
+	feedUrl := cmd.args[0]
+
+	feed, err := s.db.GetFeed(context.Background(), feedUrl)
+	if err != nil {
+		return err
+	}
+
+	params := database.DeleteFeedFollowParams{UserID: user.ID, FeedID: feed.ID}
+	err = s.db.DeleteFeedFollow(context.Background(), params)
+	if err != nil {
+		return err
 	}
 
 	return nil
