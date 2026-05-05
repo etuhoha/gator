@@ -46,6 +46,8 @@ func main() {
 	cmds.register("register", handlerRegister)
 	cmds.register("reset", handlerReset)
 	cmds.register("users", handlerUsers)
+	cmds.register("agg", handlerAgg)
+	cmds.register("addfeed", handlerAddFeed)
 
 	conf, err := config.Read()
 	if err != nil {
@@ -117,7 +119,7 @@ func handlerRegister(s *state, cmd command) error {
 		return err
 	}
 
-	fmt.Printf("user created: %v\n", user)
+	fmt.Printf("user created: %+v\n", user)
 	return nil
 }
 
@@ -145,5 +147,51 @@ func handlerUsers(s *state, cmd command) error {
 		fmt.Printf("* %v\n", name)
 	}
 
+	return nil
+}
+
+func handlerAgg(s *state, cmd command) error {
+	url := "https://www.wagslane.dev/index.xml"
+	feed, err := fetchFeed(context.Background(), url)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%+v\n", feed)
+
+	return nil
+}
+
+func handlerAddFeed(s *state, cmd command) error {
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("missing feed name")
+	}
+
+	if len(cmd.args) < 2 {
+		return fmt.Errorf("missing feed url")
+	}
+
+	user, err := s.db.GetUser(context.Background(), s.config.User)
+	if err != nil {
+		return err
+	}
+
+	feedName := cmd.args[0]
+	feedUrl := cmd.args[1]
+
+	params := database.CreateFeedParams{}
+	params.Name = feedName
+	params.Url = feedUrl
+	params.UserID = user.ID
+	params.ID = uuid.New()
+	params.CreatedAt = time.Now()
+	params.UpdatedAt = params.CreatedAt
+
+	feed, err := s.db.CreateFeed(context.Background(), params)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("feed created: %+v\n", feed)
 	return nil
 }
