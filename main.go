@@ -49,6 +49,8 @@ func main() {
 	cmds.register("agg", handlerAgg)
 	cmds.register("addfeed", handlerAddFeed)
 	cmds.register("feeds", handlerFeeds)
+	cmds.register("follow", handlerFollow)
+	cmds.register("following", handlerFollowing)
 
 	conf, err := config.Read()
 	if err != nil {
@@ -193,6 +195,11 @@ func handlerAddFeed(s *state, cmd command) error {
 		return err
 	}
 
+	_, err = addFollow(s, user, feed)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("feed created: %+v\n", feed)
 	return nil
 }
@@ -208,7 +215,67 @@ func handlerFeeds(s *state, cmd command) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("* %v (%v) by %v\n", feed.Name, feed.Url, user.Name)
+		fmt.Printf("* %v (%v) -> %v\n", feed.Name, feed.Url, user.Name)
+	}
+
+	return nil
+}
+
+func handlerFollow(s *state, cmd command) error {
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("missing feed url")
+	}
+
+	feedUrl := cmd.args[0]
+
+	feed, err := s.db.GetFeed(context.Background(), feedUrl)
+	if err != nil {
+		return err
+	}
+
+	user, err := s.db.GetUser(context.Background(), s.config.User)
+	if err != nil {
+		return err
+	}
+
+	row, err := addFollow(s, user, feed)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("follow created: %v -> %v\n", row.FeedName, row.UserName)
+	return nil
+}
+
+func addFollow(s *state, user database.User, feed database.Feed) (database.CreateFeedFollowRow, error) {
+	params := database.CreateFeedFollowParams{}
+	params.UserID = user.ID
+	params.FeedID = feed.ID
+	params.ID = uuid.New()
+	params.CreatedAt = time.Now()
+	params.UpdatedAt = params.CreatedAt
+
+	row, err := s.db.CreateFeedFollow(context.Background(), params)
+	if err != nil {
+		return database.CreateFeedFollowRow{}, err
+	}
+
+	return row, nil
+}
+
+func handlerFollowing(s *state, cmd command) error {
+	user, err := s.db.GetUser(context.Background(), s.config.User)
+	if err != nil {
+		return err
+	}
+
+	rows, err := s.db.GetFeedFollowsByUser(context.Background(), user.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, row := range rows {
+		fmt.Printf("* %v -> %v\n", row.FeedName, row.UserName)
 	}
 
 	return nil
