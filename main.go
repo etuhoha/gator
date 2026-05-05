@@ -47,10 +47,10 @@ func main() {
 	cmds.register("reset", handlerReset)
 	cmds.register("users", handlerUsers)
 	cmds.register("agg", handlerAgg)
-	cmds.register("addfeed", handlerAddFeed)
+	cmds.register("addfeed", decorateLoggedIn(handlerAddFeed))
 	cmds.register("feeds", handlerFeeds)
-	cmds.register("follow", handlerFollow)
-	cmds.register("following", handlerFollowing)
+	cmds.register("follow", decorateLoggedIn(handlerFollow))
+	cmds.register("following", decorateLoggedIn(handlerFollowing))
 
 	conf, err := config.Read()
 	if err != nil {
@@ -77,6 +77,19 @@ func main() {
 		fmt.Printf("command error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func decorateLoggedIn(handler func(*state, command, database.User) error) func(*state, command) error {
+	decorator := func(s *state, cmd command) error {
+		user, err := s.db.GetUser(context.Background(), s.config.User)
+		if err != nil {
+			return err
+		}
+
+		return handler(s, cmd, user)
+	}
+
+	return decorator
 }
 
 func handlerLogin(s *state, cmd command) error {
@@ -165,18 +178,13 @@ func handlerAgg(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.args) < 1 {
 		return fmt.Errorf("missing feed name")
 	}
 
 	if len(cmd.args) < 2 {
 		return fmt.Errorf("missing feed url")
-	}
-
-	user, err := s.db.GetUser(context.Background(), s.config.User)
-	if err != nil {
-		return err
 	}
 
 	feedName := cmd.args[0]
@@ -221,7 +229,7 @@ func handlerFeeds(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollow(s *state, cmd command) error {
+func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.args) < 1 {
 		return fmt.Errorf("missing feed url")
 	}
@@ -229,11 +237,6 @@ func handlerFollow(s *state, cmd command) error {
 	feedUrl := cmd.args[0]
 
 	feed, err := s.db.GetFeed(context.Background(), feedUrl)
-	if err != nil {
-		return err
-	}
-
-	user, err := s.db.GetUser(context.Background(), s.config.User)
 	if err != nil {
 		return err
 	}
@@ -263,12 +266,7 @@ func addFollow(s *state, user database.User, feed database.Feed) (database.Creat
 	return row, nil
 }
 
-func handlerFollowing(s *state, cmd command) error {
-	user, err := s.db.GetUser(context.Background(), s.config.User)
-	if err != nil {
-		return err
-	}
-
+func handlerFollowing(s *state, cmd command, user database.User) error {
 	rows, err := s.db.GetFeedFollowsByUser(context.Background(), user.ID)
 	if err != nil {
 		return err
