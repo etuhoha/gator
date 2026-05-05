@@ -167,16 +167,42 @@ func handlerUsers(s *state, cmd command) error {
 	return nil
 }
 
+func scrapeFeeds(s *state) {
+	feedDb, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return
+	}
+
+	params := database.MarkFeedFetchedParams{ID: feedDb.ID, UpdatedAt: time.Now()}
+	s.db.MarkFeedFetched(context.Background(), params)
+
+	feed, err := fetchFeed(context.Background(), feedDb.Url)
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("%v\n", feed.Channel.Title)
+	for _, item := range feed.Channel.Item {
+		fmt.Printf(" - %v\n", item.Title)
+	}
+	fmt.Println()
+}
+
 func handlerAgg(s *state, cmd command) error {
-	url := "https://www.wagslane.dev/index.xml"
-	feed, err := fetchFeed(context.Background(), url)
+	if len(cmd.args) < 1 {
+		return fmt.Errorf("missing period between updates")
+	}
+
+	period, err := time.ParseDuration(cmd.args[0])
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%+v\n", feed)
-
-	return nil
+	fmt.Printf("Collecting feeds every %dm%ds\n", int(period.Minutes()), int(period.Seconds()))
+	ticker := time.NewTicker(period)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 }
 
 func handlerAddFeed(s *state, cmd command, user database.User) error {
