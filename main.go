@@ -368,7 +368,10 @@ func handlerBrowse(s *state, cmd command, user database.User) error {
 	}
 
 	for _, post := range posts {
-		fmt.Printf(" - %v @'%v'\n", post.Title, post.PublishedAt)
+		fmt.Printf(" \n\n%v @ %v\n", post.FeedName, post.PublishedAt)
+		fmt.Printf(" -------- %v\n", post.Title)
+		fmt.Printf("%v\n", post.Description)
+		fmt.Printf("------------------------------------\n")
 	}
 	return nil
 }
