@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/etuhoha/gator/internal/config"
@@ -52,6 +54,7 @@ func main() {
 	cmds.register("follow", decorateLoggedIn(handlerFollow))
 	cmds.register("following", decorateLoggedIn(handlerFollowing))
 	cmds.register("unfollow", decorateLoggedIn(handlerUnfollow))
+	cmds.register("browse", decorateLoggedIn(handlerBrowse))
 
 	conf, err := config.Read()
 	if err != nil {
@@ -183,7 +186,29 @@ func scrapeFeeds(s *state) {
 
 	fmt.Printf("%v\n", feed.Channel.Title)
 	for _, item := range feed.Channel.Item {
-		fmt.Printf(" - %v\n", item.Title)
+		fmt.Printf(" - %v @'%v'\n", item.Title, item.PubDate)
+
+		params := database.CreatePostParams{}
+		params.ID = uuid.New()
+		params.CreatedAt = time.Now()
+		params.UpdatedAt = params.CreatedAt
+		params.Title = item.Title
+		params.Url = item.Link
+		params.Description = item.Description
+
+		pubDate, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			pubDate = params.CreatedAt
+		}
+		params.PublishedAt = pubDate
+		params.FeedID = feedDb.ID
+
+		_, err = s.db.CreatePost(context.Background(), params)
+		if err != nil {
+			if !strings.Contains(err.Error(), "posts_url_key") {
+				fmt.Printf("error while saving\n %+v\n%v", params, err)
+			}
+		}
 	}
 	fmt.Println()
 }
@@ -324,5 +349,26 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 		return err
 	}
 
+	return nil
+}
+
+func handlerBrowse(s *state, cmd command, user database.User) error {
+	limit := int32(2)
+	if len(cmd.args) > 0 {
+		l, err := strconv.ParseInt(cmd.args[0], 10, 32)
+		if err == nil {
+			limit = int32(l)
+		}
+	}
+
+	params := database.GetPostsByUserParams{UserID: user.ID, Limit: limit}
+	posts, err := s.db.GetPostsByUser(context.Background(), params)
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		fmt.Printf(" - %v @'%v'\n", post.Title, post.PublishedAt)
+	}
 	return nil
 }
